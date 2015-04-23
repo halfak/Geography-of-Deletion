@@ -13,9 +13,9 @@ other metdata.
 
 ## Step 2 -- Fetch text for deleted articles
 
-  cat datasets/deleted_last_revision.tsv | \
-  ./fetch_text --api=https://en.wikipedia.org/w/api.php --check-deleted-first > \
-  datasets/deleted_last_text.tsv
+    cat datasets/deleted_last_revision.tsv | \
+    ./fetch_text --api=https://en.wikipedia.org/w/api.php --check-deleted-first > \
+    datasets/deleted_last_text.tsv
 
 This will add a 'last_text' column to the dataset containing the text of the
-last revision of the article. 
+last revision of the article.
