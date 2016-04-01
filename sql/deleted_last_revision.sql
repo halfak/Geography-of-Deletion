@@ -9,5 +9,6 @@ SELECT
   COUNT(*) AS revisions,
   True AS archived
 FROM archive
+WHERE ar_namespace = 0
 GROUP BY 1,2,3;
 

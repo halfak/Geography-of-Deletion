@@ -10,7 +10,9 @@ Options:
     --check-deleted-first  Assume that rev_ids will be for deleted pages
 """
 import getpass
+import io
 import sys
+import traceback
 
 import docopt
 from mw import api
@@ -19,33 +21,50 @@ from mw import api
 def main():
     args = docopt.docopt(__doc__)
 
+    input_data = io.TextIOWrapper(sys.stdin.buffer, encoding='utf8', errors='replace')
 
-    headers, rows = read_input(sys.stdin)
+    headers, rows = read_input(input_data)
 
     session = api.Session(args['--api'])
-    session.login(input("Username: "), getpass.getpass("Password: "))
+
+    sys.stderr.write("Log into " + args['--api'] + "\n")
+    sys.stderr.write("Username: ");sys.stderr.flush()
+    username = open('/dev/tty').readline().strip()
+    password = getpass.getpass("Password: ")
+    session.login(username, password)
 
     check_deleted_first = args['--check-deleted-first']
 
-    new_headers = header + ['last_text']
+    new_headers = headers + ['last_text']
     run(rows, session, new_headers, check_deleted_first)
 
 def read_input(f):
     headers = f.readline().strip().split("\t")
-    return headers, read_rows(f)
+    return headers, read_rows(headers, f)
 
 def read_rows(headers, f):
-    for line in f:
-        yield dict(zip(headers, line.strip().split("\t")))
+    try:
+        i = 0
+        for i, line in enumerate(f):
+            yield dict(zip(headers, line.strip().split("\t")))
+    except Exception as e:
+        sys.stderr.write("An error occurred while processing line {0}.\n".format(i+2))
+        sys.stderr.write(traceback.format_exc())
+        sys.exit(1)
 
-def run(new_headers, rows, session, check_deleted_first):
+def run(rows, session, new_headers, check_deleted_first):
 
     print("\t".join(new_headers))
     for row in rows:
         rev_id = row['last_rev_id']
-        row['last_text'] = fetch_text(session, rev_id, check_deleted_first)
-        sys.stderr.write(".");sys.stderr.flush()
-        print("\t".join(encode(row[h]) for h in headers))
+        try:
+            row['last_text'] = fetch_text(session, rev_id, check_deleted_first)
+            sys.stderr.write(".");sys.stderr.flush()
+        except Exception as e:
+            row['last_text'] = None
+            sys.stderr.write("An error occurred while processing revision {0}.\n".format(rev_id))
+            sys.stderr.write(traceback.format_exc())
+        print("\t".join(encode(row[h]) for h in new_headers))
 
 
 def encode(val):
@@ -57,6 +76,10 @@ def encode(val):
 
 
 def fetch_text(session, rev_id, check_deleted_first=False):
+    try:
+        rev_id = int(rev_id)
+    except ValueError:
+        return ""
 
     if check_deleted_first:
         collections = [session.deleted_revisions, session.revisions]
